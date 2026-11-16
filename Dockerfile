@@ -32,8 +32,11 @@ COPY --chown=node:node --from=build /app/public ./public
 COPY --chown=node:node --from=build /app/drizzle ./drizzle
 COPY --chown=node:node --from=build /app/package.json /app/next.config.ts ./
 COPY --chown=node:node --from=build /app/src/lib/security/headers.ts ./src/lib/security/headers.ts
-RUN mkdir -p /data && chown node:node /data
-USER node
+# Next's runtime cache goes to /tmp, so the image also runs with a read-only
+# root filesystem (Kubernetes restricted pods, e.g. Ozymandis).
+RUN mkdir -p /data && chown node:node /data && ln -s /tmp /app/.next/cache
+# Numeric, not "node": runAsNonRoot can only verify a numeric uid. node is 1000.
+USER 1000:1000
 VOLUME ["/data"]
 EXPOSE 3000 25
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/setup/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
